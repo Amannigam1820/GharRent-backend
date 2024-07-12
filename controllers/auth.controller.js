@@ -24,10 +24,33 @@ export const register = async (req, res) => {
       },
     });
 
-    res.status(201).json({
-      message: "User Created SuccessFully",
-      user: newUser,
+
+    const user = await prisma.user.findUnique({
+      where: { username },
     });
+
+
+
+    const age = 1000 * 60 * 60 * 24 * 7;
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        isAdmin :false
+      },
+      process.env.JWT_SECRET_KEY,
+      { expiresIn: age }
+    );
+
+    res
+    .cookie("token", token, {
+      httpOnly: true,
+      maxAge: age,
+    })
+    .status(200)
+    .json({ message: "Register SuccessFully", newUser});
+
+   
   } catch (error) {
     console.log(error);
     res.status(500).json({
@@ -43,6 +66,7 @@ export const login = async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { username },
     });
+
     if (!user) {
       return res.status(401).json({ message: "Invalid Credentials" });
     }

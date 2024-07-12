@@ -1,7 +1,11 @@
 import jwt from "jsonwebtoken"
 
 export const verifyToken = async(req,res,next)=>{
-    const token = req.cookies.token;
+    const { token } = req.cookies;
+   // console.log('Cookies:', req.cookies);
+
+   
+   // console.log('ver-Token:', token)
     if(!token){
         return res.status(401).json({message:"Not Authenticated"});
     }
@@ -11,6 +15,7 @@ export const verifyToken = async(req,res,next)=>{
             
         }
         req.userId  = payload.id
+        //console.log("ver-userId",req.userId);
       
         next();
     })
