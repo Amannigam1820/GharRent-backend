@@ -1,20 +1,37 @@
 import prisma from "../lib/prisma.js";
+import jwt from "jsonwebtoken";
 
 export const getPosts = async (req, res) => {
   const query = req.query;
 
+  console.log(query);
+
+  let filter = {};
+
+  // Add filters only if they are provided in the query
+  if (query.city) filter.city = query.city;
+  if (query.type) filter.type = query.type;
+  if (query.property) filter.property = query.property;
+  if (query.bedroom) filter.bedroom = parseInt(query.bedroom);
+  if (query.minPrice || query.maxPrice) {
+    filter.price = {};
+    if (query.minPrice) filter.price.gte = parseInt(query.minPrice);
+    if (query.maxPrice) filter.price.lte = parseInt(query.maxPrice);
+  }
+
   try {
     const posts = await prisma.post.findMany({
-      where:{
-        city:query.city || undefined,
-        type:query.type || undefined,
-        property:query.property || undefined,
-        bedroom:parseInt(query.bedroom) || undefined,
-        price:{
-          gte:parseInt(query.minPrice) || 0,
-          lte:parseInt(query.maxPrice) || 100000,
-        }
-      }
+      where: 
+        filter
+        // city: query.city || "",
+        // type: query.type || "",
+        // property: query.property || "",
+        // bedroom: parseInt(query.bedroom) || "",
+        // price: {
+        //   gte: parseInt(query.minPrice) || 0,
+        //   lte: parseInt(query.maxPrice) || 100000,
+        // },
+      
     });
 
     res.status(201).json({ message: "Success", posts: posts });
@@ -26,28 +43,85 @@ export const getPosts = async (req, res) => {
   }
 };
 
+// export const getPost = async (req, res) => {
+//   const id = req.params.id;
+//   try {
+//     const post = await prisma.post.findUnique({
+//       where: { id: id },
+//       include: {
+//         postDetail: true,
+//         user: {
+//           select: {
+//             username: true,
+//             avatar: true,
+//           },
+//         },
+//       },
+//     });
+//     const token = req.cookies?.token;
+//     if (token) {
+//       jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, payload) => {
+//         if (!err) {
+//           const saved = await prisma.savedPost.findUnique({
+//             where: {
+//               userId_postId: {
+//                 postId: id,
+//                 userId: payload.id,
+//               },
+//             },
+//           });
+//           return res.status(200).json({ ...post, isSaved: saved ? true : false });
+//         }
+//       });
+//     }
+//     res.status(200).json({ ...post, isSaved: false });
+ 
+
+//     res.status(201).json({ message: "Success", post: post });
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({
+//       message: "failed to get post",
+//     });
+//   }
+// };
 export const getPost = async (req, res) => {
   const id = req.params.id;
   try {
     const post = await prisma.post.findUnique({
-      where: {id: id},
-      include:{
-        postDetail:true,
-        user:{
-            select:{
-                username:true,
-                avatar:true
-            }
-        }
-      }
+      where: { id: id },
+      include: {
+        postDetail: true,
+        user: {
+          select: {
+            username: true,
+            avatar: true,
+          },
+        },
+      },
     });
-    if(!post){
-        res.status(203).json({
-            message:"No Property Available"
-        })
-    }
 
-    res.status(201).json({ message: "Success", post: post });
+    const token = req.cookies?.token;
+    if (token) {
+      jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, payload) => {
+        if (err) {
+          return res.status(200).json({ ...post, isSaved: false });
+        }
+
+        const saved = await prisma.savedPost.findUnique({
+          where: {
+            userId_postId: {
+              postId: id,
+              userId: payload.id,
+            },
+          },
+        });
+
+        return res.status(200).json({ ...post, isSaved: saved ? true : false });
+      });
+    } else {
+      return res.status(200).json({ ...post, isSaved: false });
+    }
   } catch (error) {
     console.log(error);
     res.status(500).json({
@@ -65,12 +139,14 @@ export const addPost = async (req, res) => {
       data: {
         ...body.postData,
         userId: tokenUserId,
-        postDetail:{
-            create:body.postDetail
-        }
+        postDetail: {
+          create: body.postDetail,
+        },
       },
     });
-    res.status(201).json({ message: "Property Added SuccessFully", post: newPost });
+    res
+      .status(201)
+      .json({ message: "Property Added SuccessFully", post: newPost });
   } catch (error) {
     console.log(error);
     res.status(500).json({
@@ -79,7 +155,9 @@ export const addPost = async (req, res) => {
   }
 };
 
-export const updatePost = async (req, res) => {};
+export const updatePost = async (req, res) => {
+  
+};
 
 export const deletePost = async (req, res) => {
   const id = req.params.id;
